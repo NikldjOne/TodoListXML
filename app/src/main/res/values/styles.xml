@@ -2,7 +2,11 @@
 <resources>
     <style name="RectFABShape" parent="">
         <item name="cornerFamily">rounded</item>
-        <item name="cornerSize">12dp</item>
+        <item name="cornerSize">30dp</item>
+    </style>
+    <style name="SendBtn" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">15dp</item>
     </style>
     <style name="TaskCardStyle" parent="Widget.MaterialComponents.CardView">
         <item name="cardElevation">6dp</item>

@@ -3,4 +3,8 @@
     <string name="task_edit">Новая задача</string>
     <string name="my_tasks_title">Мои задачи</string>
     <string name="todo">TODO</string>
+    <string name="habits">Привычки</string>
+    <string name="nav_profile">Профиль</string>
+    <string name="nav_home">Главная</string>
+    <string name="addTaskBtn">кнопка для добавления задачи</string>
 </resources>

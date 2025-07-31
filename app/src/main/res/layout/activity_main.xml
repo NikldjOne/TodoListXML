@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"  xmlns:tools="http://schemas.android.com/tools"
-    tools:context=".MainActivity"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/rootContainer"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background">
+    android:background="@color/background"
+    tools:context=".MainActivity">
 
     <TextView
         android:id="@+id/textView2"
@@ -13,6 +15,7 @@
         android:layout_marginStart="16dp"
         android:layout_marginTop="16dp"
         android:text="@string/my_tasks_title"
+        android:textColor="@color/white"
         android:textSize="24sp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
@@ -28,16 +31,79 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/textView2" />
 
+
+    <View
+        android:id="@+id/keyboard_anchor"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="invisible"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottom_navigation"
+        android:layout_width="0dp"
+        android:layout_height="60dp"
+        android:background="@color/background"
+        android:elevation="0dp"
+        app:elevation="0dp"
+        app:itemIconTint="@color/bottom_nav_item_colors"
+        app:itemRippleColor="@color/white"
+        app:itemTextAppearanceInactive="@color/background"
+        app:itemTextColor="@color/bottom_nav_item_colors"
+        app:labelVisibilityMode="labeled"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/floatingActionButton"
+        app:layout_constraintStart_toStartOf="parent"
+        app:menu="@menu/bottom_nav_menu" />
+
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/floatingActionButton"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:layout_weight="1"
+        android:backgroundTint="@color/white"
+        android:clickable="true"
+        android:contentDescription="@string/todo"
+        android:elevation="0dp"
+        android:stateListAnimator="@null"
+        android:tint="@color/background"
+        app:borderWidth="0dp"
+        app:elevation="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:shapeAppearanceOverlay="@style/RectFABShape"
+        app:srcCompat="@drawable/ic_add" />
+
+
+    <LinearLayout
+        android:id="@+id/containerOpacity"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:background="@color/backgroundOpacity"
+        android:orientation="vertical"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <LinearLayout
         android:id="@+id/floatingEditContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginBottom="-10dp"
         android:background="@color/background"
         android:clipToPadding="false"
-        android:gravity="end"
+        android:gravity="center_horizontal|center_vertical"
         android:padding="16dp"
+        android:translationZ="8dp"
         android:visibility="gone"
-        android:layout_marginBottom="-10dp"
         app:layout_constraintBottom_toTopOf="@+id/keyboard_anchor"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -50,65 +116,31 @@
             android:layout_marginEnd="16dp"
             android:layout_weight="5"
             android:backgroundTint="@android:color/transparent"
+            android:cursorVisible="false"
             android:ems="10"
             android:hint="@string/task_edit"
             android:inputType="text"
             android:minHeight="48dp"
-            android:cursorVisible="false"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@+id/floatingActionButton"
             app:layout_constraintStart_toStartOf="parent" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/iconBtn"
+            android:layout_width="101dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:backgroundTint="@color/background"
+            android:contentDescription="@string/todo"
+            android:elevation="0dp"
+            android:enabled="false"
+            android:tint="@color/disabled_btn_selector_icon"
+            app:borderWidth="0dp"
+            app:elevation="0dp"
+            app:rippleColor="@color/white"
+            app:shapeAppearanceOverlay="@style/SendBtn"
+            app:srcCompat="@drawable/ic_send"
+            app:tint="@color/disabled_btn_selector_icon" />
     </LinearLayout>
 
-    <View
-        android:id="@+id/keyboard_anchor"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:visibility="invisible"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
-
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/floatingActionButton"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:backgroundTint="@color/blue"
-        android:clickable="true"
-        android:contentDescription="@string/todo"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:shapeAppearanceOverlay="@style/RectFABShape"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="16dp"
-        app:srcCompat="@drawable/ic_add" />
-
-
-    <!-- Bottom Navigation -->
-    <com.google.android.material.bottomnavigation.BottomNavigationView
-        android:id="@+id/bottom_navigation"
-        android:layout_width="wrap_content"
-        android:layout_height="70dp"
-        android:layout_alignParentBottom="true"
-        app:background="?attr/colorPrimary"
-        app:itemIconTint="@color/backgroundDark"
-        app:itemTextColor="@color/backgroundDark"
-        app:labelVisibilityMode="labeled"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/floatingActionButton"
-        app:layout_constraintStart_toStartOf="parent"
-        app:menu="@menu/bottom_nav_menu" />
-
-    <!-- Кастомная кнопка поверх -->
-    <ImageButton
-        android:id="@+id/custom_button"
-        android:layout_width="64dp"
-        android:layout_height="64dp"
-        android:background="@drawable/ic_add"
-        android:src="@drawable/ic_add"
-        app:tint="@color/white"
-        android:layout_alignTop="@id/bottom_navigation"
-        android:layout_centerHorizontal="true"
-        android:elevation="8dp"/>
 </androidx.constraintlayout.widget.ConstraintLayout>

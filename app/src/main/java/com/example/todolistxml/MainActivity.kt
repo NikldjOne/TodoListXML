@@ -1,9 +1,11 @@
 package com.example.todolistxml
 
 import android.os.Bundle
-import android.util.Log
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.View
 import android.view.inputmethod.InputMethodManager
+import androidx.activity.addCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -16,76 +18,135 @@ import com.example.todolistxml.data.ui.features.tasks.adapter.TaskAdapter
 import com.example.todolistxml.data.ui.features.tasks.model.TaskViewModel
 
 class MainActivity : AppCompatActivity() {
-   private lateinit var binding: ActivityMainBinding
-   private val mutableList: MutableList<TaskViewModel> = mutableListOf()
-    private lateinit var adapter: TaskAdapter
+    private lateinit var binding: ActivityMainBinding
+    private val tasks = mutableListOf<TaskViewModel>()
+    private val adapter by lazy { TaskAdapter(tasks) }
+    private var isKeyboardVisibleNow: Boolean = false
+    private val imm by lazy { getSystemService(InputMethodManager::class.java) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        setupInsetsListener()
+        setupRecycler()
+        setupKeyboardObserver()
+        setupBackCallback()
+        setupTextWatcher()
+        setupFab()
+        setupIconBtn()
+        setupContainerOpacity()
+    }
 
-        val imm = getSystemService(InputMethodManager::class.java)
+    private fun setupInsetsListener() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
             val navBarHeight = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
             view.updatePadding(bottom = navBarHeight)
             insets
         }
+    }
 
-        val fab = binding.floatingActionButton
-        val editText = binding.editText
-        val rootView = binding.rootContainer
-        val floatingEditContainer = binding.floatingEditContainer
+    private fun setupRecycler() {
+        binding.recyclerTask.apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = this@MainActivity.adapter
+        }
+    }
+
+    private fun setupKeyboardObserver() {
         val observer = KeyboardVisibilityObserver(binding.root)
         lifecycle.addObserver(observer)
-        binding.recyclerTask.layoutManager = LinearLayoutManager(this)
-        adapter = TaskAdapter(
-            mutableList,
-        )
-        binding.recyclerTask.adapter = adapter
-
         observer.isKeyboardVisible.observe(this) { isVisible ->
-            if (isVisible && floatingEditContainer.isVisible) {
-                floatingEditContainer.translationY = 0f
+            isKeyboardVisibleNow = isVisible
+            if (isVisible && binding.floatingEditContainer.isVisible) {
+                binding.floatingEditContainer.translationY = 0f
             } else {
-                val rootHeight = rootView.height
-                val viewHeight = floatingEditContainer.height
-                Log.d("Keyboard", "Клавиатура закрыта")
-                floatingEditContainer.translationY = ((rootHeight/2)-viewHeight/2).toFloat()
-
+                centerFloatingContainer()
             }
         }
+    }
 
-        fab.setOnClickListener {
-            if(floatingEditContainer.isGone){
-                floatingEditContainer.visibility = View.VISIBLE
-                editText.requestFocus()
-                imm.showSoftInput(editText, InputMethodManager.SHOW_IMPLICIT)
-                fab.setImageResource(R.drawable.ic_check)
-                rootView.setBackgroundColor(getResources().getColor(R.color.backgroundDark, null))
+    private fun centerFloatingContainer() {
+        val rootHeight = binding.rootContainer.height
+        val viewHeight = binding.floatingEditContainer.height
+        binding.floatingEditContainer.translationY = ((rootHeight / 2) - viewHeight / 2).toFloat()
+    }
 
-            }else{
-                mutableList.add(TaskViewModel(editText.text.toString(), false))
-                adapter.notifyItemInserted(mutableList.size - 1)
-                imm.hideSoftInputFromWindow(editText.windowToken, 0)
-                floatingEditContainer.visibility = View.GONE
-                fab.setImageResource(R.drawable.ic_add)
-                rootView.setBackgroundColor(getResources().getColor(R.color.background, null))
+    private fun setupBackCallback() {
+        onBackPressedDispatcher.addCallback(this) {
+            when {
+                isKeyboardVisibleNow -> {
+                    imm.hideSoftInputFromWindow(binding.editText.windowToken, 0)
+                }
+
+                binding.floatingEditContainer.isVisible -> {
+                    hideEditor()
+                }
+
+                else -> finish()
             }
         }
+    }
 
-        ViewCompat.setOnApplyWindowInsetsListener(rootView) {_, insets ->
-            val imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
-            val imeHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            val containerHeight = floatingEditContainer.height
+    private fun hideEditor() {
+        binding.floatingEditContainer.visibility = View.GONE
+        binding.containerOpacity.visibility = View.GONE
+        binding.floatingActionButton.setImageResource(R.drawable.ic_add)
+    }
 
-            if(imeVisible){
-                floatingEditContainer.visibility = View.VISIBLE
-            }else{
-                floatingEditContainer.visibility = View.GONE
+    private fun setupTextWatcher() {
+        binding.editText.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(p0: Editable?) {}
+            override fun beforeTextChanged(c: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun onTextChanged(c: CharSequence?, start: Int, before: Int, count: Int) {
+                binding.iconBtn.isEnabled = count > 0
             }
-            insets
+        })
+    }
+
+    private fun setupFab() {
+        binding.floatingActionButton.setOnClickListener {
+            if (binding.floatingEditContainer.isGone) {
+                showEditor()
+            } else {
+                addTask()
+            }
+        }
+    }
+
+    private fun showEditor() {
+        binding.floatingEditContainer.visibility = View.VISIBLE
+        binding.containerOpacity.visibility = View.VISIBLE
+        binding.editText.requestFocus()
+        imm.showSoftInput(binding.editText, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    private fun setupIconBtn() {
+        binding.iconBtn.setOnClickListener {
+            if (binding.editText.text.isNotEmpty()) {
+                addTask()
+            }
+        }
+    }
+
+    private fun addTask() {
+        tasks.add(TaskViewModel(binding.editText.text.toString(), false))
+        adapter.notifyItemInserted(tasks.size - 1)
+        imm.hideSoftInputFromWindow(binding.editText.windowToken, 0)
+        binding.floatingEditContainer.visibility = View.GONE
+        binding.containerOpacity.visibility = View.GONE
+        binding.editText.setText("")
+    }
+
+    private fun setupContainerOpacity() {
+        binding.containerOpacity.setOnClickListener {
+            if (binding.containerOpacity.isVisible) {
+                binding.containerOpacity.visibility = View.GONE
+                binding.floatingEditContainer.visibility = View.GONE
+                imm.hideSoftInputFromWindow(binding.editText.windowToken, 0)
+                binding.editText.setText("")
+            }
         }
     }
 }
