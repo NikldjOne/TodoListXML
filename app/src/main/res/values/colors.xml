@@ -8,4 +8,6 @@
     <color name="blue">#00BDE0</color>
     <color name="active_color">#FFFFFFFF</color>
     <color name="inactive_color">#313131</color>
+    <color name="red">#990606</color>
+    <color name="gray">#536083</color>
 </resources>
