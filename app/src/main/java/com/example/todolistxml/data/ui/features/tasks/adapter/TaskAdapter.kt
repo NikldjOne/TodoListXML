@@ -1,58 +1,61 @@
 package com.example.todolistxml.data.ui.features.tasks.adapter
 
-import android.app.AlertDialog
+import android.animation.ObjectAnimator
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.example.todolistxml.data.ui.features.tasks.model.TaskViewModel
 import com.example.todolistxml.databinding.ItemTodoBinding
 
-class TaskAdapter(private val dataset: List<TaskViewModel>) :
+
+class TaskAdapter(
+    private val dataset: MutableList<TaskViewModel>,
+    private val listener: TaskActionListener
+) :
     RecyclerView.Adapter<TaskAdapter.ViewHolder>() {
-
-    private val openedPositions = mutableSetOf<Int>()
-
-    fun isOpened(position: Int): Boolean = openedPositions.contains(position)
-
-    fun setOpened(position: Int, opened: Boolean) {
-        if (opened) openedPositions.add(position)
-        else openedPositions.remove(position)
-    }
 
     class ViewHolder(private val binding: ItemTodoBinding) : RecyclerView.ViewHolder(binding.root) {
         val foregroundCard = binding.foregroundCard
         val backgroundButtons = binding.backgroundButtons
 
+        fun closeItemView() {
+            if (itemView.scrollX != 0) {
+                ObjectAnimator.ofInt(itemView, "scrollX", itemView.scrollX, 0)
+                    .setDuration(300)
+                    .start()
+            }
+        }
+
         init {
             binding.backgroundButtons.bringToFront()
-            binding.btnEdit.setOnClickListener {
-                AlertDialog.Builder(binding.root.context)                // this — ваш Context (Activity)
-                    .setTitle("Заголовок").setMessage("Сообщение в диалоге")
-                    .setPositiveButton("ОК") { dialog, _ ->
-                        // обработка нажатия на кнопку ОК
-                        dialog.dismiss()
-                    }.setNegativeButton("Отмена") { dialog, _ ->
-                        // обработка нажатия на кнопку Отмена
-                        dialog.dismiss()
-                    }
-                    .setCancelable(true)                  // можно закрыть по тапу вне диалога или кнопкой «Назад»
-                    .show()
-            }
-            binding.btnDelete.setOnClickListener {
 
-            }
-            foregroundCard.setOnClickListener {
-                if (foregroundCard.scrollX != 0) {
-                    foregroundCard.scrollTo(0, 0)
+            itemView.setOnClickListener {
+                if (itemView.scrollX != 0) {
+                    closeItemView()
                 }
             }
         }
 
-        fun bind(task: TaskViewModel) {
+        fun bind(task: TaskViewModel, onDeleteClick: () -> Unit, onEditClick: () -> Unit) {
             binding.textView.text = task.text
             binding.checkBox.setOnCheckedChangeListener(null)
             binding.checkBox.isChecked = task.isChecked
-
+            binding.textViewDate.text = task.date
+            binding.btnEdit.setOnClickListener {
+                closeItemView()
+            }
+            binding.btnDelete.setOnClickListener {
+                if (bindingAdapterPosition != RecyclerView.NO_POSITION) {
+                    closeItemView()
+                    onDeleteClick()
+                }
+            }
+            binding.btnEdit.setOnClickListener {
+                if (bindingAdapterPosition != RecyclerView.NO_POSITION) {
+                    closeItemView()
+                    onEditClick()
+                }
+            }
         }
     }
 
@@ -64,8 +67,20 @@ class TaskAdapter(private val dataset: List<TaskViewModel>) :
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.foregroundCard.scrollTo(0, 0)
-        holder.bind(dataset[position])
+        holder.itemView.scrollTo(0, 0)
+        holder.bind(
+            dataset[position], onDeleteClick = {
+                val pos = holder.bindingAdapterPosition
+                if (pos != RecyclerView.NO_POSITION) {
+                    listener.onDelete(pos)
+                }
+            },
+            onEditClick = {
+                val pos = holder.bindingAdapterPosition
+                if (pos != RecyclerView.NO_POSITION) {
+                    listener.onEdit(pos)
+                }
+            })
     }
 
 

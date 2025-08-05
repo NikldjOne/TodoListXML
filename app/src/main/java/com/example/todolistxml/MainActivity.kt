@@ -1,12 +1,9 @@
 package com.example.todolistxml
 
-import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Rect
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.util.Log
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import androidx.activity.addCallback
@@ -17,22 +14,30 @@ import com.example.todolistxml.databinding.ActivityMainBinding
 import androidx.core.view.isGone
 import androidx.core.view.updatePadding
 import androidx.core.view.isVisible
+import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.example.todolistxml.data.ui.features.tasks.adapter.TaskActionListener
 import com.example.todolistxml.data.ui.features.tasks.adapter.TaskAdapter
 import com.example.todolistxml.data.ui.features.tasks.model.TaskViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), TaskActionListener {
     private lateinit var binding: ActivityMainBinding
     private val tasks = mutableListOf<TaskViewModel>()
-    private val adapter by lazy { TaskAdapter(tasks) }
+    private val adapter by lazy { TaskAdapter(tasks, this) }
     private var isKeyboardVisibleNow: Boolean = false
     private val imm by lazy { getSystemService(InputMethodManager::class.java) }
     private val swipeRefreshLayout: SwipeRefreshLayout by lazy {
         binding.swipeRefreshLayout
     }
+
+    private var isEditMode = false
+    private var positionEdit = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,8 +70,46 @@ class MainActivity : AppCompatActivity() {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = this@MainActivity.adapter
         }
+        val dividerItemDecoration = DividerItemDecoration(
+            binding.recyclerTask.context,
+            LinearLayoutManager.VERTICAL
+        )
+        binding.recyclerTask.addItemDecoration(dividerItemDecoration)
+
         setItemTouchHelper()
     }
+
+    override fun onDelete(position: Int) {
+        tasks.removeAt(position)
+        adapter.notifyItemRemoved(position)
+    }
+
+    override fun onEdit(position: Int) {
+        showEditor()
+        binding.editText.setText(tasks[position].text)
+        positionEdit = position
+        isEditMode = true
+    }
+
+    private fun addTask() {
+        val formatter = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+        tasks.add(TaskViewModel(binding.editText.text.toString(), false, formatter.format(Date())))
+        adapter.notifyItemInserted(tasks.size - 1)
+        imm.hideSoftInputFromWindow(binding.editText.windowToken, 0)
+        binding.floatingEditContainer.visibility = View.GONE
+        binding.containerOpacity.visibility = View.GONE
+        binding.editText.setText("")
+    }
+
+    private fun editTask() {
+        tasks[positionEdit].text = binding.editText.text.toString()
+        adapter.notifyItemChanged(positionEdit)
+        binding.floatingEditContainer.visibility = View.GONE
+        binding.containerOpacity.visibility = View.GONE
+        imm.hideSoftInputFromWindow(binding.editText.windowToken, 0)
+        offEditMode()
+    }
+
 
     private fun setupKeyboardObserver() {
         val observer = KeyboardVisibilityObserver(binding.root)
@@ -96,6 +139,9 @@ class MainActivity : AppCompatActivity() {
 
                 binding.floatingEditContainer.isVisible -> {
                     hideEditor()
+                    if(isEditMode){
+                        offEditMode()
+                    }
                 }
 
                 else -> finish()
@@ -107,6 +153,11 @@ class MainActivity : AppCompatActivity() {
         binding.floatingEditContainer.visibility = View.GONE
         binding.containerOpacity.visibility = View.GONE
         binding.floatingActionButton.setImageResource(R.drawable.ic_add)
+    }
+    private fun offEditMode () {
+        isEditMode = false
+        positionEdit = 0
+        binding.editText.setText("")
     }
 
     private fun setupTextWatcher() {
@@ -139,19 +190,15 @@ class MainActivity : AppCompatActivity() {
     private fun setupIconBtn() {
         binding.iconBtn.setOnClickListener {
             if (binding.editText.text.isNotEmpty()) {
-                addTask()
+                if (isEditMode) {
+                    editTask()
+                } else {
+                    addTask()
+                }
             }
         }
     }
 
-    private fun addTask() {
-        tasks.add(TaskViewModel(binding.editText.text.toString(), false))
-        adapter.notifyItemInserted(tasks.size - 1)
-        imm.hideSoftInputFromWindow(binding.editText.windowToken, 0)
-        binding.floatingEditContainer.visibility = View.GONE
-        binding.containerOpacity.visibility = View.GONE
-        binding.editText.setText("")
-    }
 
     private fun setupContainerOpacity() {
         binding.containerOpacity.setOnClickListener {
@@ -167,10 +214,10 @@ class MainActivity : AppCompatActivity() {
     private fun setItemTouchHelper() {
         ItemTouchHelper(object : ItemTouchHelper.Callback() {
 
-//            private val limitScrollX = holder.backgroundButtons.width.toFloat() // tidi
+            private var openedViewHolder: TaskAdapter.ViewHolder? = null
             private var currentScrollX = 0
-            private var currentScrollWhenInActive = 0
-            private var initXWhenActive = 0f
+            private var currentScrollXWhenInActive = 0
+            private var initXWhenInActive = 0f
             private var firstInActive = false
 
             override fun getMovementFlags(
@@ -211,27 +258,64 @@ class MainActivity : AppCompatActivity() {
                 actionState: Int,
                 isCurrentlyActive: Boolean
             ) {
-//            private val limitScrollX = recyclerView.backgroundButtons.width.toFloat() // tidi
+                val holder = viewHolder as TaskAdapter.ViewHolder
+                val limitScrollX = viewHolder.backgroundButtons.width
 
-                if(actionState == ItemTouchHelper.ACTION_STATE_SWIPE){
-                    if(dX == 0f){
+                if (actionState == ItemTouchHelper.ACTION_STATE_SWIPE) {
+                    if (openedViewHolder != null && openedViewHolder != holder) {
+                        openedViewHolder?.closeItemView()
+                        openedViewHolder = null
+                    }
+                    if (dX == 0f) {
                         currentScrollX = viewHolder.itemView.scrollX
                         firstInActive = true
                     }
-                    if(isCurrentlyActive){
+                    if (isCurrentlyActive) {
                         //swipe with finger
-                        val scrollOfset = currentScrollX + (-dX).toInt()
-                        if(scrollOfset > limit)
-                    }else{
-
+                        var scrollOffset = (currentScrollX + (-dX)).toInt()
+                        if (scrollOffset > limitScrollX) {
+                            scrollOffset = limitScrollX
+                        } else if (scrollOffset < 0) {
+                            scrollOffset = 0
+                        }
+                        viewHolder.itemView.scrollTo(scrollOffset, 0)
+                    } else {
+                        if (firstInActive) {
+                            firstInActive = false
+                            currentScrollXWhenInActive = viewHolder.itemView.scrollX
+                            initXWhenInActive = dX
+                        }
+                        if (viewHolder.itemView.scrollX < limitScrollX) {
+                            viewHolder.itemView.scrollTo(
+                                (currentScrollXWhenInActive * dX / initXWhenInActive).toInt(),
+                                0
+                            )
+                        }
+                    }
+                    if (viewHolder.itemView.scrollX > 0) {
+                        openedViewHolder = holder
                     }
                 }
             }
 
-        }).apply { attachToRecyclerView(binding.recyclerTask) }
-    }
+            override fun clearView(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder
+            ) {
+                super.clearView(recyclerView, viewHolder)
+                val holder = viewHolder as TaskAdapter.ViewHolder
+                val limitScrollX = viewHolder.backgroundButtons.width
 
-    private fun dipToPx(dipValue: Float,context: Context): Int {
-        return (dipValue * context.resources.displayMetrics.density).toInt()
+                if (viewHolder.itemView.scrollX > limitScrollX) {
+                    viewHolder.itemView.scrollTo(limitScrollX, 0)
+                } else if (viewHolder.itemView.scrollX < 0) {
+                    viewHolder.itemView.scrollTo(0, 0)
+                }
+                if (viewHolder.itemView.scrollX == 0 && openedViewHolder == viewHolder) {
+                    openedViewHolder = null
+                }
+            }
+
+        }).apply { attachToRecyclerView(binding.recyclerTask) }
     }
 }
