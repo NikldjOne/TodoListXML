@@ -1,9 +1,12 @@
 package com.example.todolistxml
 
+import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Rect
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.util.Log
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import androidx.activity.addCallback
@@ -17,6 +20,7 @@ import androidx.core.view.isVisible
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.example.todolistxml.data.ui.features.tasks.adapter.TaskAdapter
 import com.example.todolistxml.data.ui.features.tasks.model.TaskViewModel
 
@@ -26,6 +30,9 @@ class MainActivity : AppCompatActivity() {
     private val adapter by lazy { TaskAdapter(tasks) }
     private var isKeyboardVisibleNow: Boolean = false
     private val imm by lazy { getSystemService(InputMethodManager::class.java) }
+    private val swipeRefreshLayout: SwipeRefreshLayout by lazy {
+        binding.swipeRefreshLayout
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,7 +41,6 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
         setupInsetsListener()
         setupRecycler()
-        attachSwipeHandler()
         setupKeyboardObserver()
         setupBackCallback()
         setupTextWatcher()
@@ -52,10 +58,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupRecycler() {
+        swipeRefreshLayout.setOnRefreshListener {
+            swipeRefreshLayout.isRefreshing = false
+        }
         binding.recyclerTask.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = this@MainActivity.adapter
         }
+        setItemTouchHelper()
     }
 
     private fun setupKeyboardObserver() {
@@ -154,83 +164,74 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun attachSwipeHandler() {
-        val callback = object : ItemTouchHelper.Callback() {
-            // флаг: начался ли swipe
-            private var isSwiping = false
+    private fun setItemTouchHelper() {
+        ItemTouchHelper(object : ItemTouchHelper.Callback() {
+
+//            private val limitScrollX = holder.backgroundButtons.width.toFloat() // tidi
+            private var currentScrollX = 0
+            private var currentScrollWhenInActive = 0
+            private var initXWhenActive = 0f
+            private var firstInActive = false
 
             override fun getMovementFlags(
                 recyclerView: RecyclerView,
                 viewHolder: RecyclerView.ViewHolder
             ): Int {
-                // свайп только влево и вправо
+                val dragFlags = 0
                 val swipeFlags = ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT
-                return makeMovementFlags(0, swipeFlags)
+                return makeMovementFlags(dragFlags, swipeFlags)
             }
 
             override fun onMove(
                 recyclerView: RecyclerView,
                 viewHolder: RecyclerView.ViewHolder,
                 target: RecyclerView.ViewHolder
-            ) = true
+            ): Boolean = true
 
-            // Мы не удаляем элемент из списка по завершении свайпа:
-            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {}
+            override fun onSwiped(
+                viewHolder: RecyclerView.ViewHolder,
+                direction: Int
+            ) {
+            }
 
-            // здесь узнаём, что жест именно свайп, а не клик
-            override fun onSelectedChanged(vh: RecyclerView.ViewHolder?, actionState: Int) {
-                super.onSelectedChanged(vh, actionState)
-                isSwiping = actionState == ItemTouchHelper.ACTION_STATE_SWIPE
+            override fun getSwipeThreshold(viewHolder: RecyclerView.ViewHolder): Float {
+                return Integer.MAX_VALUE.toFloat()
+            }
+
+            override fun getSwipeEscapeVelocity(defaultValue: Float): Float {
+                return Integer.MAX_VALUE.toFloat()
             }
 
             override fun onChildDraw(
                 c: Canvas,
                 recyclerView: RecyclerView,
                 viewHolder: RecyclerView.ViewHolder,
-                dX: Float,    // текущее смещение по X
+                dX: Float,
                 dY: Float,
                 actionState: Int,
                 isCurrentlyActive: Boolean
             ) {
-                val holder = viewHolder as TaskAdapter.ViewHolder
-                val buttonsWidth = holder.backgroundButtons.width.toFloat()
+//            private val limitScrollX = recyclerView.backgroundButtons.width.toFloat() // tidi
 
-                // Зажимаем смещение между –buttonsWidth и +buttonsWidth—но если вам
-                // нужен только влево, то используйте coerceIn(-buttonsWidth, 0f)
-                val clampedDx = dX.coerceIn(-buttonsWidth, 0f)
+                if(actionState == ItemTouchHelper.ACTION_STATE_SWIPE){
+                    if(dX == 0f){
+                        currentScrollX = viewHolder.itemView.scrollX
+                        firstInActive = true
+                    }
+                    if(isCurrentlyActive){
+                        //swipe with finger
+                        val scrollOfset = currentScrollX + (-dX).toInt()
+                        if(scrollOfset > limit)
+                    }else{
 
-                // Применяем translationX к карточке и к кнопкам
-                holder.foregroundCard.translationX = clampedDx
-                holder.backgroundButtons.translationX = clampedDx
+                    }
+                }
             }
 
-            // После того, как палец отпущен и жест завершён, clearView вызывается
-            override fun clearView(
-                recyclerView: RecyclerView,
-                viewHolder: RecyclerView.ViewHolder
-            ) {
-                super.clearView(recyclerView, viewHolder)
-                if (!isSwiping) return       // если не было swipe → ничего не делаем
+        }).apply { attachToRecyclerView(binding.recyclerTask) }
+    }
 
-                val holder = viewHolder as TaskAdapter.ViewHolder
-                val buttonsWidth = holder.backgroundButtons.width.toFloat()
-                val current = holder.foregroundCard.translationX
-
-                // фиксируем только после свайпа
-                val target = if (current <= -buttonsWidth/2) -buttonsWidth else 0f
-                holder.foregroundCard
-                    .animate().translationX(target).setDuration(150).start()
-                holder.backgroundButtons
-                    .animate().translationX(target).setDuration(150).start()
-
-                isSwiping = false
-            }
-
-            // Важный момент: по умолчанию для того, чтобы фиксация «onSwiped»
-            // не удаляла элемент, достаточно вернуть 1.0:
-            override fun getSwipeThreshold(viewHolder: RecyclerView.ViewHolder) = 1.0f
-        }
-
-        ItemTouchHelper(callback).attachToRecyclerView(binding.recyclerTask)
+    private fun dipToPx(dipValue: Float,context: Context): Int {
+        return (dipValue * context.resources.displayMetrics.density).toInt()
     }
 }
