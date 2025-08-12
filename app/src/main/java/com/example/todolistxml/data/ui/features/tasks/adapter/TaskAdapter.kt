@@ -16,7 +16,6 @@ class TaskAdapter(
     RecyclerView.Adapter<TaskAdapter.ViewHolder>() {
 
     class ViewHolder(private val binding: ItemTodoBinding) : RecyclerView.ViewHolder(binding.root) {
-        val foregroundCard = binding.foregroundCard
         val backgroundButtons = binding.backgroundButtons
 
         fun closeItemView() {
