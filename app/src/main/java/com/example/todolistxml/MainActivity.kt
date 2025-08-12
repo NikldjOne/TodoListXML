@@ -4,9 +4,11 @@ import android.graphics.Canvas
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.util.Log
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import androidx.activity.addCallback
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -19,25 +21,30 @@ import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.example.todolistxml.data.remote.model.TaskDto
+import com.example.todolistxml.data.repository.TaskRepository
 import com.example.todolistxml.data.ui.features.tasks.adapter.TaskActionListener
 import com.example.todolistxml.data.ui.features.tasks.adapter.TaskAdapter
 import com.example.todolistxml.data.ui.features.tasks.model.TaskViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.example.todolistxml.data.ui.features.tasks.model.TaskViewModelFactory
+
 
 class MainActivity : AppCompatActivity(), TaskActionListener {
     private lateinit var binding: ActivityMainBinding
-    private val tasks = mutableListOf<TaskViewModel>()
+    private val tasks = mutableListOf<TaskDto>()
     private val adapter by lazy { TaskAdapter(tasks, this) }
     private var isKeyboardVisibleNow: Boolean = false
     private val imm by lazy { getSystemService(InputMethodManager::class.java) }
     private val swipeRefreshLayout: SwipeRefreshLayout by lazy {
         binding.swipeRefreshLayout
     }
+    private val viewModel: TaskViewModel by viewModels {
+        TaskViewModelFactory(TaskRepository(MyApp.taskApi))
+    }
+
 
     private var isEditMode = false
-    private var positionEdit = 0
+    private var positionEdit = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,6 +70,15 @@ class MainActivity : AppCompatActivity(), TaskActionListener {
     }
 
     private fun setupRecycler() {
+        viewModel.isLoading.observe(this) { loading ->
+            binding.containerLoading.visibility = if (loading) View.VISIBLE else View.GONE
+        }
+        viewModel.tasks.observe(this) { dtos ->
+            tasks.clear()
+            tasks.addAll(dtos.map { TaskDto(it.id, it.text, it.isChecked, it.date) })
+            adapter.notifyDataSetChanged()
+        }
+
         swipeRefreshLayout.setOnRefreshListener {
             swipeRefreshLayout.isRefreshing = false
         }
@@ -79,31 +95,38 @@ class MainActivity : AppCompatActivity(), TaskActionListener {
         setItemTouchHelper()
     }
 
-    override fun onDelete(position: Int) {
-        tasks.removeAt(position)
-        adapter.notifyItemRemoved(position)
+    override fun onDelete(id: String) {
+        val dto = viewModel.getTask(id) ?: return
+        viewModel.delete(dto.id)
     }
 
-    override fun onEdit(position: Int) {
+    override fun onEdit(id: String) {
         showEditor()
-        binding.editText.setText(tasks[position].text)
-        positionEdit = position
+        val dto = viewModel.getTask(id)
+        binding.editText.setText(dto?.text)
+        positionEdit = dto?.id ?: ""
         isEditMode = true
     }
 
+    override fun onCheckBox(id: String) {
+        val dto = viewModel.getTask(id) ?: return
+        viewModel.edit(id, dto.text, !dto.isChecked)
+    }
+
     private fun addTask() {
-        val formatter = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
-        tasks.add(TaskViewModel(binding.editText.text.toString(), false, formatter.format(Date())))
-        adapter.notifyItemInserted(tasks.size - 1)
-        imm.hideSoftInputFromWindow(binding.editText.windowToken, 0)
-        binding.floatingEditContainer.visibility = View.GONE
-        binding.containerOpacity.visibility = View.GONE
-        binding.editText.setText("")
+        val text = binding.editText.text.toString()
+        if (text.isNotBlank()) {
+            viewModel.add(text)
+            imm.hideSoftInputFromWindow(binding.editText.windowToken, 0)
+            binding.floatingEditContainer.visibility = View.GONE
+            binding.containerOpacity.visibility = View.GONE
+            binding.editText.setText("")
+        }
     }
 
     private fun editTask() {
-        tasks[positionEdit].text = binding.editText.text.toString()
-        adapter.notifyItemChanged(positionEdit)
+        val text = binding.editText.text.toString()
+        viewModel.edit(positionEdit, text)
         binding.floatingEditContainer.visibility = View.GONE
         binding.containerOpacity.visibility = View.GONE
         imm.hideSoftInputFromWindow(binding.editText.windowToken, 0)
@@ -139,7 +162,7 @@ class MainActivity : AppCompatActivity(), TaskActionListener {
 
                 binding.floatingEditContainer.isVisible -> {
                     hideEditor()
-                    if(isEditMode){
+                    if (isEditMode) {
                         offEditMode()
                     }
                 }
@@ -154,9 +177,10 @@ class MainActivity : AppCompatActivity(), TaskActionListener {
         binding.containerOpacity.visibility = View.GONE
         binding.floatingActionButton.setImageResource(R.drawable.ic_add)
     }
-    private fun offEditMode () {
+
+    private fun offEditMode() {
         isEditMode = false
-        positionEdit = 0
+        positionEdit = ""
         binding.editText.setText("")
     }
 

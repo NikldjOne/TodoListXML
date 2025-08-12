@@ -3,13 +3,14 @@ package com.example.todolistxml.data.ui.features.tasks.adapter
 import android.animation.ObjectAnimator
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.widget.CompoundButton
 import androidx.recyclerview.widget.RecyclerView
-import com.example.todolistxml.data.ui.features.tasks.model.TaskViewModel
+import com.example.todolistxml.data.remote.model.TaskDto
 import com.example.todolistxml.databinding.ItemTodoBinding
 
 
 class TaskAdapter(
-    private val dataset: MutableList<TaskViewModel>,
+    private val dataset: MutableList<TaskDto>,
     private val listener: TaskActionListener
 ) :
     RecyclerView.Adapter<TaskAdapter.ViewHolder>() {
@@ -36,7 +37,7 @@ class TaskAdapter(
             }
         }
 
-        fun bind(task: TaskViewModel, onDeleteClick: () -> Unit, onEditClick: () -> Unit) {
+        fun bind(task: TaskDto, onDeleteClick: () -> Unit, onEditClick: () -> Unit, onCheckBox: () -> Unit) {
             binding.textView.text = task.text
             binding.checkBox.setOnCheckedChangeListener(null)
             binding.checkBox.isChecked = task.isChecked
@@ -56,7 +57,11 @@ class TaskAdapter(
                     onEditClick()
                 }
             }
+            binding.checkBox.setOnClickListener {
+                onCheckBox()
+            }
         }
+
     }
 
     override fun onCreateViewHolder(
@@ -67,19 +72,18 @@ class TaskAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        val task = dataset[position]
         holder.itemView.scrollTo(0, 0)
         holder.bind(
-            dataset[position], onDeleteClick = {
-                val pos = holder.bindingAdapterPosition
-                if (pos != RecyclerView.NO_POSITION) {
-                    listener.onDelete(pos)
-                }
+            dataset[position],
+            onDeleteClick = {
+                listener.onDelete(task.id)
             },
             onEditClick = {
-                val pos = holder.bindingAdapterPosition
-                if (pos != RecyclerView.NO_POSITION) {
-                    listener.onEdit(pos)
-                }
+                listener.onEdit(task.id)
+            },
+            onCheckBox = {
+                listener.onCheckBox(task.id)
             })
     }
 
