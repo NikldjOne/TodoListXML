@@ -35,9 +35,10 @@ class TaskViewModel(private val repo: TaskRepository) : ViewModel() {
     }
 
     fun edit(id: String, newText: String, checkBox: Boolean? = null) = viewModelScope.launch {
+
         if (id.isBlank()) return@launch
         val old = _tasks.value?.firstOrNull { it.id == id } ?: return@launch
-        val update = repo.edit(old.copy(text = newText, isChecked = if (checkBox == true) checkBox else old.isChecked))
+        val update = repo.edit(old.copy(text = newText, isChecked = checkBox ?: old.isChecked))
         _tasks.value = _tasks.value!!.map { if (it.id == id) update else it }
         refresh()
     }

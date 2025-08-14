@@ -9,6 +9,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
 import android.widget.LinearLayout
 import androidx.activity.OnBackPressedCallback
 import androidx.core.view.ViewCompat
@@ -33,7 +34,9 @@ import com.example.todolistxml.data.ui.features.tasks.model.TaskViewModelFactory
 import com.example.todolistxml.databinding.FragmentHomeBinding
 import kotlin.getValue
 import androidx.fragment.app.viewModels
+import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.android.material.textfield.TextInputEditText
 
 
 class HomeFragment : Fragment(), TaskActionListener {
@@ -50,7 +53,12 @@ class HomeFragment : Fragment(), TaskActionListener {
         TaskViewModelFactory(TaskRepository(MyApp.taskApi))
     }
     private lateinit var floatingActionButton: FloatingActionButton
+    private lateinit var iconBtn: FloatingActionButton
     private lateinit var containerLoading: LinearLayout
+    private lateinit var editText: EditText
+    private lateinit var floatingEditContainer: LinearLayout
+    private lateinit var containerOpacity: LinearLayout
+    private lateinit var bottom_navigation: BottomNavigationView
 
 
     private var isEditMode = false
@@ -76,7 +84,12 @@ class HomeFragment : Fragment(), TaskActionListener {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         floatingActionButton = requireActivity().findViewById(R.id.floatingActionButton)
-        containerLoading =requireActivity().findViewById(R.id.container_loading)
+        containerLoading = requireActivity().findViewById(R.id.container_loading)
+        editText = requireActivity().findViewById(R.id.editText)
+        floatingEditContainer = requireActivity().findViewById(R.id.floatingEditContainer)
+        containerOpacity = requireActivity().findViewById(R.id.containerOpacity)
+        iconBtn = requireActivity().findViewById(R.id.iconBtn)
+        bottom_navigation = requireActivity().findViewById(R.id.bottom_navigation)
 
         setupInsetsListener()
         setupRecycler()
@@ -130,7 +143,8 @@ class HomeFragment : Fragment(), TaskActionListener {
     override fun onEdit(id: String) {
         showEditor()
         val dto = viewModel.getTask(id)
-        binding.editText.setText(dto?.text)
+        editText.setText(dto?.text)
+        editText.setSelection(editText.text?.length ?: 0)
         positionEdit = dto?.id ?: ""
         isEditMode = true
     }
@@ -141,22 +155,22 @@ class HomeFragment : Fragment(), TaskActionListener {
     }
 
     private fun addTask() {
-        val text = binding.editText.text.toString()
+        val text = editText.text.toString()
         if (text.isNotBlank()) {
             viewModel.add(text)
-            imm.hideSoftInputFromWindow(binding.editText.windowToken, 0)
-            binding.floatingEditContainer.visibility = View.GONE
-            binding.containerOpacity.visibility = View.GONE
-            binding.editText.setText("")
+            imm.hideSoftInputFromWindow(editText.windowToken, 0)
+            floatingEditContainer.visibility = View.GONE
+            containerOpacity.visibility = View.GONE
+            editText.setText("")
         }
     }
 
     private fun editTask() {
-        val text = binding.editText.text.toString()
+        val text = editText.text.toString()
         viewModel.edit(positionEdit, text)
-        binding.floatingEditContainer.visibility = View.GONE
-        binding.containerOpacity.visibility = View.GONE
-        imm.hideSoftInputFromWindow(binding.editText.windowToken, 0)
+        floatingEditContainer.visibility = View.GONE
+        containerOpacity.visibility = View.GONE
+        imm.hideSoftInputFromWindow(editText.windowToken, 0)
         offEditMode()
     }
 
@@ -166,8 +180,8 @@ class HomeFragment : Fragment(), TaskActionListener {
         lifecycle.addObserver(observer)
         observer.isKeyboardVisible.observe(viewLifecycleOwner) { isVisible ->
             isKeyboardVisibleNow = isVisible
-            if (isVisible && binding.floatingEditContainer.isVisible) {
-                binding.floatingEditContainer.translationY = 0f
+            if (isVisible && floatingEditContainer.isVisible) {
+                floatingEditContainer.translationY = 0f
             } else {
                 centerFloatingContainer()
             }
@@ -176,18 +190,19 @@ class HomeFragment : Fragment(), TaskActionListener {
 
     private fun centerFloatingContainer() {
         val rootHeight = binding.rootContainer.height
-        val viewHeight = binding.floatingEditContainer.height
-        binding.floatingEditContainer.translationY = ((rootHeight / 2) - viewHeight / 2).toFloat()
+        val viewHeight = floatingEditContainer.height
+        val bottomBar = bottom_navigation.height
+        floatingEditContainer.translationY = (((rootHeight / 2) + bottomBar/2) - viewHeight / 2).toFloat()
     }
 
     private fun handleBackPress() {
 
         when {
             isKeyboardVisibleNow -> {
-                imm.hideSoftInputFromWindow(binding.editText.windowToken, 0)
+                imm.hideSoftInputFromWindow(editText.windowToken, 0)
             }
 
-            binding.floatingEditContainer.isVisible -> {
+            floatingEditContainer.isVisible -> {
                 hideEditor()
                 if (isEditMode) {
                     offEditMode()
@@ -201,30 +216,30 @@ class HomeFragment : Fragment(), TaskActionListener {
     }
 
     private fun hideEditor() {
-        binding.floatingEditContainer.visibility = View.GONE
-        binding.containerOpacity.visibility = View.GONE
+        floatingEditContainer.visibility = View.GONE
+        containerOpacity.visibility = View.GONE
         floatingActionButton.setImageResource(R.drawable.ic_add)
     }
 
     private fun offEditMode() {
         isEditMode = false
         positionEdit = ""
-        binding.editText.setText("")
+        editText.setText("")
     }
 
     private fun setupTextWatcher() {
-        binding.editText.addTextChangedListener(object : TextWatcher {
+        editText.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(p0: Editable?) {}
             override fun beforeTextChanged(c: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun onTextChanged(c: CharSequence?, start: Int, before: Int, count: Int) {
-                binding.iconBtn.isEnabled = count > 0
+                iconBtn.isEnabled = count > 0
             }
         })
     }
 
     private fun setupFab() {
         floatingActionButton.setOnClickListener {
-            if (binding.floatingEditContainer.isGone) {
+            if (floatingEditContainer.isGone) {
                 showEditor()
             } else {
                 addTask()
@@ -233,15 +248,15 @@ class HomeFragment : Fragment(), TaskActionListener {
     }
 
     private fun showEditor() {
-        binding.floatingEditContainer.visibility = View.VISIBLE
-        binding.containerOpacity.visibility = View.VISIBLE
-        binding.editText.requestFocus()
-        imm.showSoftInput(binding.editText, InputMethodManager.SHOW_IMPLICIT)
+        floatingEditContainer.visibility = View.VISIBLE
+        containerOpacity.visibility = View.VISIBLE
+        editText.requestFocus()
+        imm.showSoftInput(editText, InputMethodManager.SHOW_IMPLICIT)
     }
 
     private fun setupIconBtn() {
-        binding.iconBtn.setOnClickListener {
-            if (binding.editText.text.isNotEmpty()) {
+        iconBtn.setOnClickListener {
+            if (editText.text?.isNotEmpty() ?: false) {
                 if (isEditMode) {
                     editTask()
                 } else {
@@ -253,12 +268,12 @@ class HomeFragment : Fragment(), TaskActionListener {
 
 
     private fun setupContainerOpacity() {
-        binding.containerOpacity.setOnClickListener {
-            if (binding.containerOpacity.isVisible) {
-                binding.containerOpacity.visibility = View.GONE
-                binding.floatingEditContainer.visibility = View.GONE
-                imm.hideSoftInputFromWindow(binding.editText.windowToken, 0)
-                binding.editText.setText("")
+        containerOpacity.setOnClickListener {
+            if (containerOpacity.isVisible) {
+                containerOpacity.visibility = View.GONE
+                floatingEditContainer.visibility = View.GONE
+                imm.hideSoftInputFromWindow(editText.windowToken, 0)
+                editText.setText("")
             }
         }
     }
